@@ -1,0 +1,140 @@
+dist: xenial
+
+os: osx
+
+language: cpp
+
+stages:
+  - librime
+  - squirrel
+
+jobs:
+  include:
+    - stage: librime
+      name: "Compile librime"
+      language: cpp
+      os: osx
+      compiler: clang
+      git:
+        # clone: false
+        depth: 3
+        quiet: true
+        submodules: false
+      before_install:
+        - export TZ='Asia/Shanghai' TIMEZONE="Asia/Shanghai" LANG="en_US.UTF-8" LANGUAGE="en_US.UTF-8" LC_ALL="en_US.UTF-8"
+        - export HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1
+        - |
+          if [[ ! -n ${RIME_BUNDLED_PLUGINS} ]]; then
+            export RIME_BUNDLED_PLUGINS="hchunhui/librime-lua lotem/librime-octagram rime/librime-sample"
+          fi
+        - export RIME_PLUGINS="${RIME_BUNDLED_PLUGINS}" RIME_VARIANT="rime-with-plugins"
+        # - brew install cmake git luajit lua
+        - brew info boost
+        - brew install boost@1.60
+        - brew link --force --overwrite boost@1.60
+        - git clone --recursive https://github.com/rime/librime.git rime/librime
+        - cd rime/librime
+        - git submodule update --init --recursive  # --remote
+        - export LIBRIME_COMMIT="$(git rev-parse --short HEAD)"
+        - |
+          if [[ -n $(git tag --points-at ${LIBRIME_COMMIT}) ]]; then
+            export LIBRIME_TAG=$(git tag --points-at ${LIBRIME_COMMIT})
+            export FILE_VERSION=${LIBRIME_TAG}
+            export BINTRAY_PACKAGE_VERSION=${LIBRIME_TAG}
+          else
+            export LIBRIME_VERSION=$(git describe --abbrev=0 --tags)
+            export FILE_VERSION=${LIBRIME_VERSION}+git${LIBRIME_COMMIT}
+            export BINTRAY_PACKAGE_VERSION=${LIBRIME_VERSION}
+          fi
+      install: "./travis-install.sh"
+      script: make xcode/test
+      before_deploy:
+        - make xcode/dist
+        - |
+          zip -r ${RIME_VARIANT:-rime}-${FILE_VERSION}-${TRAVIS_OS_NAME}.zip \
+            dist thirdparty/bin thirdparty/share \
+            -x '*/curl.exe'
+        - cd ../..
+        - "./travis-before-deploy-librime.sh"
+      deploy:
+        # - provider: releases
+        #   api_key: ${GITHUB_TOKEN}
+        #   file: ${RIME_VARIANT:-rime}-${LIBRIME_TAG}+git${LIBRIME_COMMIT}-${TRAVIS_OS_NAME}.zip
+        #   skip_cleanup: true
+        #   # tag_name: 1.5.3
+        #   # target_commitish: ${TRAVIS_COMMIT}
+        #   name: "librime ${LIBRIME_TAG}+git${LIBRIME_COMMIT}"
+        #   body: "chore(release): ${LIBRIME_TAG}+git${LIBRIME_COMMIT} :tada:"
+        #   draft: true
+        #   # prerelease: true
+        #   on:
+        #     repo: issenn/rime-ci
+        #     branch: master
+        - provider: bintray
+          file: travis-deploy-librime-package-release.json
+          user: issenn
+          key: ${BINTRAY_API_KEY}
+          skip_cleanup: true
+          on:
+            repo: issenn/rime-ci
+            branch: master
+
+    - stage: squirrel
+      name: "Compile squirrel"
+      language: objective-c
+      os: osx
+      compiler: clang
+      git:
+        # clone: false
+        depth: 3
+        quiet: true
+        submodules: false
+      before_install:
+        - export TZ='Asia/Shanghai' TIMEZONE="Asia/Shanghai" LANG="en_US.UTF-8" LANGUAGE="en_US.UTF-8" LC_ALL="en_US.UTF-8"
+        - export HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1
+        - export LIBRIME_FILE_VERSION="1.5.3+git19596af"
+        - |
+          if [[ ! -n ${SQUIRREL_BUNDLED_RECIPES} ]]; then
+            export SQUIRREL_BUNDLED_RECIPES=":preset lotem/rime-octagram-data lotem/rime-octagram-data@hant"
+          fi
+        # - brew install cmake git luajit lua
+        - brew info boost
+        - brew install boost@1.60
+        - brew link --force --overwrite boost@1.60
+        - git clone --recursive https://github.com/rime/squirrel.git rime/squirrel
+        - cd rime/squirrel
+        - git submodule update --init --recursive  # --remote
+        - export SQUIRREL_COMMIT="$(git rev-parse --short HEAD)"
+        - |
+          if [[ -n $(git tag --points-at ${SQUIRREL_COMMIT}) ]]; then
+            export SQUIRREL_TAG=$(git tag --points-at ${SQUIRREL_COMMIT})
+            export FILE_VERSION=${SQUIRREL_TAG}
+            export BINTRAY_PACKAGE_VERSION=${SQUIRREL_TAG}
+          else
+            export SQUIRREL_VERSION=$(git describe --abbrev=0 --tags)
+            export FILE_VERSION=${SQUIRREL_VERSION}+git${SQUIRREL_COMMIT}
+            export BINTRAY_PACKAGE_VERSION=${SQUIRREL_VERSION}
+          fi
+      install:
+        - rime_version=${LIBRIME_FILE_VERSION} rime_variant='rime-with-plugins'
+        - download_archive="${rime_variant}-${rime_version}-osx.zip"
+        - curl -LO "https://dl.bintray.com/issenn/rime/${download_archive}"
+        - unzip -n "${download_archive}" -d librime
+        - rm -f "${download_archive}"
+        - make copy-rime-binaries copy-opencc-data
+        - rime_dir=plum/output bash plum/rime-install ${SQUIRREL_BUNDLED_RECIPES}
+        - make copy-plum-data
+      script: make
+      after_success: make archive
+      before_deploy:
+        - cd ../..
+        - "./travis-before-deploy-squirrel.sh"
+      deploy:
+        - provider: bintray
+          file: travis-deploy-squirrel-package-release.json
+          user: issenn
+          key: ${BINTRAY_API_KEY}
+          skip_cleanup: true
+          on:
+            repo: issenn/rime-ci
+            branch: master

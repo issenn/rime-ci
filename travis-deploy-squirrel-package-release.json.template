@@ -1,0 +1,17 @@
+{
+  "package": {
+    "name": "{{package_name}}",
+    "repo": "rime",
+    "subject": "issenn",
+    "vcs_url": "https://github.com/issenn/rime-ci.git",
+    "licenses": ["GPL-3.0"]
+  },
+  "version": {
+    "name": "{{version_name}}",
+    "desc": "{{version_desc}}"
+  },
+  "files": [
+    { "includePattern": "\./(Squirre.*\\.zip)", "uploadPattern": "$1" }
+  ],
+  "publish": {{publish}}
+}

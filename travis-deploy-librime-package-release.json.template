@@ -1,0 +1,17 @@
+{
+  "package": {
+    "name": "{{package_name}}",
+    "repo": "rime",
+    "subject": "issenn",
+    "vcs_url": "https://github.com/issenn/rime-ci.git",
+    "licenses": ["BSD 3-Clause"]
+  },
+  "version": {
+    "name": "{{version_name}}",
+    "desc": "{{version_desc}}"
+  },
+  "files": [
+    { "includePattern": "\./(rime.*\\.zip)", "uploadPattern": "$1" }
+  ],
+  "publish": {{publish}}
+}
