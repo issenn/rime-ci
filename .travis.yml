@@ -16,7 +16,6 @@ jobs:
       os: osx
       compiler: clang
       git:
-        # clone: false
         depth: 3
         quiet: true
         submodules: false
@@ -85,7 +84,6 @@ jobs:
       os: osx
       compiler: clang
       git:
-        # clone: false
         depth: 3
         quiet: true
         submodules: false
